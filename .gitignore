@@ -1,0 +1,7 @@
+dist/
+__pycache__/
+*.pyc
+node_modules/
+web-ext-artifacts/
+/host/target/
+tests/e2e/site/tone.ogg
