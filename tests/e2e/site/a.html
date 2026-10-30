@@ -1,0 +1,17 @@
+<!doctype html><title>Tone A page</title>
+<audio id="m" src="/tone.ogg" loop></audio>
+<script>
+const log = (k, v) => fetch('/log?' + new URLSearchParams({k, v: v ?? ''}));
+const m = document.getElementById('m');
+navigator.mediaSession.metadata = new MediaMetadata({
+  title: 'Tone A', artist: 'Artist A', album: 'Album A',
+  artwork: [{src: '/art96.png', sizes: '96x96', type: 'image/png'}, {src: '/art512.png', sizes: '512x512', type: 'image/png'}]
+});
+for (const a of ['play', 'pause', 'nexttrack', 'previoustrack'])
+  navigator.mediaSession.setActionHandler(a, () => { log('handler', a); if (a === 'play') m.play(); if (a === 'pause') m.pause(); });
+m.addEventListener('seeked', () => log('seeked', Math.round(m.currentTime)));
+m.addEventListener('volumechange', () => log('volume', m.volume.toFixed(2)));
+m.addEventListener('ratechange', () => log('rate', m.playbackRate));
+window.next = () => { navigator.mediaSession.metadata = new MediaMetadata({title: 'Tone B', artist: 'Artist B'}); };
+m.play().then(() => log('playing'), e => log('blocked', e.name));
+</script>

@@ -1,0 +1,7 @@
+<!doctype html><title>(3) Plain Page - YouTube</title>
+<meta property="og:image" content="/art512.png">
+<audio id="m" src="/tone.ogg" loop></audio>
+<script>
+const m = document.getElementById('m');
+m.play().then(() => fetch('/log?k=playing-b'), e => fetch('/log?k=blocked-b'));
+</script>
