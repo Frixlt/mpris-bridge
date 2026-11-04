@@ -6,7 +6,7 @@ This is a fork of [totti786/mpris-bridge](https://github.com/totti786/mpris-brid
 
 ## Status
 
-Version **1.1.2** is a development release. Version 1.1.0 was submitted for Mozilla review; versions 1.1.1–1.1.2 add local artwork delivery and needs a separate signed update. GitHub's unsigned XPI is suitable for temporary installation and submission to Mozilla; it does not bypass Firefox signing requirements.
+Version **1.1.3** is a development release. Version 1.1.0 was submitted for Mozilla review; versions 1.1.1–1.1.3 add local artwork delivery and needs a separate signed update. GitHub's unsigned XPI is suitable for temporary installation and submission to Mozilla; it does not bypass Firefox signing requirements.
 
 ## Install the local helper
 

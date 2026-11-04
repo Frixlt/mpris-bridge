@@ -50,9 +50,21 @@
       let details = null;
       try {
         const player = document.querySelector("#movie_player")?.wrappedJSObject;
-        details = player?.getPlayerResponse?.()?.videoDetails || player?.getVideoData?.();
-        if (details && !details.videoId && details.video_id)
-          details = { videoId: details.video_id, title: details.title, author: details.author };
+        const raw = player?.getPlayerResponse?.()?.videoDetails || player?.getVideoData?.();
+        if (raw) {
+          // Copy primitives out of the page compartment before using array callbacks.
+          // Firefox blocks passing content-script callbacks into page-owned arrays.
+          details = { videoId: String(raw.videoId || raw.video_id || ''),
+            title: String(raw.title || ''), author: String(raw.author || ''),
+            thumbnail: { thumbnails: [] } };
+          try {
+            const thumbnails = raw.thumbnail?.thumbnails;
+            for (let i = 0; thumbnails && i < thumbnails.length && i < 32; ++i) {
+              const t = thumbnails[i];
+              details.thumbnail.thumbnails.push({url:String(t.url || ''),width:Number(t.width),height:Number(t.height)});
+            }
+          } catch (_) {} // Thumbnail access must never hide an otherwise valid player.
+        }
       } catch (_) {}
       return bridgeYoutubeMetadata(location.href, details);
     }

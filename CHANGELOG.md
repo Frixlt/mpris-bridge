@@ -1,3 +1,9 @@
+# Fork release 1.1.3 — 2026-11-04
+
+- Copy YouTube thumbnail primitives into the content-script compartment before filtering/sorting, so Firefox's cross-compartment restrictions do not prevent player reports.
+- Ignore inaccessible thumbnail entries without losing the current video's title/identity.
+- Exercise actual page-owned thumbnail arrays in the browser regression fixture.
+
 # Fork release 1.1.2 — 2026-11-04
 
 - Bind live Twitch channel avatars to channel-labelled/linked images in the current DOM, ignoring stale OpenGraph/MediaSession artwork after SPA navigation.

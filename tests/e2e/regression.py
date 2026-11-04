@@ -75,12 +75,12 @@ class Site(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b"""<!doctype html><title>Old document title</title><div id="movie_player"></div><audio id="m" src="/tone.ogg" loop></audio><script>
 const id=new URL(location.href).searchParams.get('v');
-window.details={videoId:id,title:'Track '+id,author:'Author '+id};
+window.details={videoId:id,title:'Track '+id,author:'Author '+id,thumbnail:{thumbnails:[{url:'https://i.ytimg.com/vi/'+id+'/mqdefault.jpg',width:320,height:180}]}};
 document.querySelector('#movie_player').getPlayerResponse=()=>({videoDetails:window.details});
 if(navigator.mediaSession) navigator.mediaSession.metadata=new MediaMetadata({title:'STALE SESSION TITLE',artwork:[{src:'/art96.png'}]});
 m.play();
 window.navigateTrack=(id)=>{history.pushState({},'', '/watch?v='+id);dispatchEvent(new Event('yt-navigate-finish'));};
-window.finishTrack=(id)=>{window.details={videoId:id,title:'Track '+id,author:'Author '+id};dispatchEvent(new Event('yt-player-updated'));};
+window.finishTrack=(id)=>{window.details={videoId:id,title:'Track '+id,author:'Author '+id,thumbnail:{thumbnails:[{url:'https://i.ytimg.com/vi/'+id+'/mqdefault.jpg',width:320,height:180}]}};dispatchEvent(new Event('yt-player-updated'));};
 </script>""")
             return
         if self.path.startswith("/firstchannel"):

@@ -1,7 +1,7 @@
 # Maintainer: Frixlt
 # Based on the upstream PKGBUILD by totti786
 pkgname=mpris-tab-bridge
-pkgver=1.1.2
+pkgver=1.1.3
 pkgrel=1
 pkgdesc="Publishes Firefox media tabs as MPRIS players (native-messaging helper for the MPRIS Bridge extension)"
 arch=('x86_64' 'aarch64')
