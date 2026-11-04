@@ -1,3 +1,10 @@
+# Fork release 1.1.2 — 2026-11-04
+
+- Bind live Twitch channel avatars to channel-labelled/linked images in the current DOM, ignoring stale OpenGraph/MediaSession artwork after SPA navigation.
+- Show no avatar during a transition until an image for the requested channel exists; never relabel the previous channel's avatar.
+- Use native wide YouTube thumbnails when available and a 16:9 fallback to avoid letterbox bars in circular covers.
+- Add a real-browser regression for switching Twitch channels while og:image remains stale.
+
 # Fork release 1.1.1 — 2026-11-04
 
 - Download YouTube thumbnails and Twitch channel avatars in the browser, without cookies/referrers, and pass validated image bytes to the native helper.

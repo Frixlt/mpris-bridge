@@ -6,7 +6,7 @@ This is a fork of [totti786/mpris-bridge](https://github.com/totti786/mpris-brid
 
 ## Status
 
-Version **1.1.1** is a development release. Version 1.1.0 was submitted for Mozilla review; version 1.1.1 adds local artwork delivery and needs a separate signed update. GitHub's unsigned XPI is suitable for temporary installation and submission to Mozilla; it does not bypass Firefox signing requirements.
+Version **1.1.2** is a development release. Version 1.1.0 was submitted for Mozilla review; versions 1.1.1–1.1.2 add local artwork delivery and needs a separate signed update. GitHub's unsigned XPI is suitable for temporary installation and submission to Mozilla; it does not bypass Firefox signing requirements.
 
 ## Install the local helper
 
@@ -52,6 +52,7 @@ Replace the example name with an actual player from the list. Only that tab's me
 - Restarting the native helper requests fresh reports from live documents instead of replaying cached metadata.
 - YouTube metadata comes from the current player video details. The video ID must agree with the requested watch/shorts/embed/live URL; an old title and cover are not relabelled with a new URL during navigation.
 - Album artwork on YouTube uses the verified current video ID. Other sites continue to use MediaSession metadata, page title and `og:image`.
+- Twitch avatars are selected from a page image labelled or linked to the current channel, so stale MediaSession/OpenGraph metadata cannot retain a previous channel after navigation.
 - YouTube thumbnails and Twitch avatars are downloaded by the browser and passed to the native helper as validated image bytes. MPRIS advertises a local image file, avoiding a second download by desktop panels. Twitch keeps channel avatars rather than live-frame thumbnails.
 - Every tab remains independent, even if two tabs have the same title or URL. Embedded frames are selected within their owning tab, with a playing frame preferred.
 

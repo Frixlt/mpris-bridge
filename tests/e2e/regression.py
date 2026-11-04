@@ -83,6 +83,16 @@ window.navigateTrack=(id)=>{history.pushState({},'', '/watch?v='+id);dispatchEve
 window.finishTrack=(id)=>{window.details={videoId:id,title:'Track '+id,author:'Author '+id};dispatchEvent(new Event('yt-player-updated'));};
 </script>""")
             return
+        if self.path.startswith("/firstchannel"):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(b"""<!doctype html><title>Stale channel</title><meta property="og:image" content="https://static-cdn.jtvnw.net/jtv_user_pictures/stale.png"><a id="channel" href="/firstchannel"><img id="avatar" alt="firstchannel" src="https://static-cdn.jtvnw.net/jtv_user_pictures/test-first-profile_image-300x300.png"></a><audio id="m" src="/tone.ogg" loop></audio><script>
+            m.play();
+            window.switchChannel=()=>history.pushState({},'', '/secondchannel');
+            window.finishChannel=()=>{channel.href='/secondchannel';avatar.alt='secondchannel';avatar.src='https://static-cdn.jtvnw.net/jtv_user_pictures/test-second-profile_image-300x300.png';};
+            </script>""")
+            return
         super().do_GET()
 
     def log_message(self, *a):
@@ -122,7 +132,7 @@ opts.add_argument("--allow-system-access")
 opts.accept_insecure_certs = True
 opts.page_load_strategy = "eager"
 for k, v in {
-    "network.dns.localDomains": "www.youtube.com",
+    "network.dns.localDomains": "www.youtube.com,www.twitch.tv",
     "network.proxy.type": 0,
     "network.trr.mode": 5,
     "dom.security.https_only_mode": False,
@@ -189,7 +199,7 @@ with tempfile.TemporaryDirectory(prefix="mpris-addon-test-") as temp:
         two = next(
             k for k, v in states.items() if v["Metadata"]["xesam:title"] == "Track TWO"
         )
-        assert states[one]["Metadata"]["mpris:artUrl"].endswith("/ONE/hqdefault.jpg")
+        assert states[one]["Metadata"]["mpris:artUrl"].endswith("/ONE/mqdefault.jpg")
         print(
             "PASS: page player data overrides stale MediaSession title/art", flush=True
         )
@@ -230,7 +240,7 @@ with tempfile.TemporaryDirectory(prefix="mpris-addon-test-") as temp:
             ),
         )
         assert players()[one]["Metadata"]["mpris:artUrl"].endswith(
-            "/THREE/hqdefault.jpg"
+            "/THREE/mqdefault.jpg"
         )
         driver.switch_to.window(second)
         driver.close()
@@ -258,6 +268,43 @@ with tempfile.TemporaryDirectory(prefix="mpris-addon-test-") as temp:
             )
         driver.install_addon(str(control), temporary=True)
         wait("real browser tab discard removes player", lambda: not players())
+        driver.switch_to.window(next(h for h in driver.window_handles if h != first))
+        driver.switch_to.new_window("tab")
+        driver.get("http://www.twitch.tv:" + str(server.server_port) + "/firstchannel")
+        found = wait(
+            "Twitch avatar belongs to the current channel",
+            lambda: next(
+                (
+                    (n, p)
+                    for n, p in players().items()
+                    if p["Metadata"]
+                    .get("mpris:artUrl", "")
+                    .endswith("test-first-profile_image-300x300.png")
+                ),
+                None,
+            ),
+        )
+        twitch = found[0]
+        driver.execute_script("switchChannel()")
+        wait(
+            "Twitch SPA does not retain the previous channel avatar",
+            lambda: (
+                twitch in (p := players())
+                and p[twitch]["Metadata"].get("xesam:title") == "secondchannel - Twitch"
+                and not p[twitch]["Metadata"].get("mpris:artUrl")
+            ),
+        )
+        driver.execute_script("finishChannel()")
+        wait(
+            "Twitch SPA picks the new channel avatar despite stale og:image",
+            lambda: (
+                players()
+                .get(twitch, {})
+                .get("Metadata", {})
+                .get("mpris:artUrl", "")
+                .endswith("test-second-profile_image-300x300.png")
+            ),
+        )
         print("ALL BROWSER REGRESSIONS PASSED", flush=True)
     finally:
         driver.quit()

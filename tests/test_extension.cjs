@@ -34,5 +34,10 @@ assert.equal(bridgeYoutubeMetadata('https://www.youtube.com/watch?v=NEW',{videoI
 const md=bridgeYoutubeMetadata('https://www.youtube.com/watch?v=NEW',{videoId:'NEW',title:'New',author:'Artist'});
 assert.equal(md.title,'New');assert.ok(md.artUrl.includes('/NEW/'));
 assert.equal(bridgeYoutubeMetadata('https://example.org',null),undefined);
+const avatars=[{alt:'sonasheka',href:'https://www.twitch.tv/sonasheka',src:'https://static-cdn.jtvnw.net/jtv_user_pictures/old.png'}, {alt:'kukuroneko',href:'https://www.twitch.tv/kukuroneko',src:'https://static-cdn.jtvnw.net/jtv_user_pictures/current.png'}];
+assert.equal(bridgeTwitchMetadata('https://www.twitch.tv/kukuroneko',avatars).artUrl,avatars[1].src);
+assert.equal(bridgeTwitchMetadata('https://www.twitch.tv/kukuroneko',avatars.slice(0,1)).artUrl,'');
+assert.equal(bridgeTwitchMetadata('https://www.twitch.tv/kukuroneko',[{alt:'old',href:'',src:avatars[0].src}]).artUrl,'');
+assert.equal(bridgeTwitchMetadata('https://www.twitch.tv/sonasheka',avatars).artUrl,avatars[0].src);
 console.log('PASS: per-tab routing, SPA URL race, document replacement, iframe removal, discard, close, queued-report race, fresh reconnect, current-video metadata');
 })();

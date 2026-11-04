@@ -38,6 +38,14 @@
   const abs = u => { try { return new URL(u, location.href).href; } catch (e) { return ""; } };
 
   function metadata() {
+    if (/^(www\.)?twitch\.tv$/.test(location.hostname)) {
+      const images = [...document.querySelectorAll('img')].map(image => ({
+        src: image.currentSrc || image.src, alt: image.alt,
+        href: image.closest('a[href]')?.href || '',
+      }));
+      const twitch = bridgeTwitchMetadata(location.href, images);
+      if (twitch !== undefined) return twitch;
+    }
     if (/(^|\.)youtube\.com$/.test(location.hostname)) {
       let details = null;
       try {
