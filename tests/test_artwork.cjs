@@ -1,0 +1,30 @@
+const vm = require('node:vm'), fs = require('node:fs'), assert = require('node:assert/strict');
+const event = () => ({ listeners: [], addListener(f) {this.listeners.push(f)}, async emit(...args) {for (const f of [...this.listeners]) await f(...args)}});
+const port = sender => ({sender, name:'mpris-bridge-media', onMessage:event(), onDisconnect:event(), sent:[], postMessage(msg){this.sent.push(msg)}});
+const tick = () => new Promise(resolve=>setImmediate(resolve));
+(async()=>{
+ const image=fs.readFileSync('tests/e2e/site/art96.png'), native=port(), content=port({tab:{id:1},frameId:0});
+ const runtime={onConnect:event(),connectNative:()=>native};
+ const browser={runtime,tabs:{get:async()=>({url:'https://example.org/',windowId:1}),onUpdated:event(),onRemoved:event()}};
+ let downloads=0, options;
+ const context={browser,URL,Date,AbortController,setTimeout,clearTimeout,btoa,fetch:async(url,opts)=>{downloads++;options=opts;return new Response(image,{headers:{'Content-Type':'image/png'}})}};
+ vm.createContext(context);
+ vm.runInContext(fs.readFileSync('extension/artwork.js','utf8'),context);
+ vm.runInContext(fs.readFileSync('extension/background.js','utf8'),context);
+ for(const url of ['http://i.ytimg.com/vi/test/a.jpg','https://i.ytimg.com.evil.org/vi/test/a.jpg','https://user:pass@i.ytimg.com/vi/test/a.jpg','https://127.0.0.1/secret','file:///etc/passwd'])assert.equal(context.bridgeArtworkAllowed(url),false);
+ await runtime.onConnect.emit(content);
+ const state={pageUrl:'https://example.org/',title:'Current',artUrl:'https://i.ytimg.com/vi/ONE/hqdefault.jpg'};
+ await content.onMessage.emit(state);await tick();await tick();
+ assert.equal(native.sent.at(-1).artData,image.toString('base64'));
+ assert.equal(options.credentials,'omit');assert.equal(options.referrerPolicy,'no-referrer');
+ await content.onMessage.emit(state);await tick();assert.equal(downloads,1);assert.equal(native.sent.at(-1).artData,undefined);
+ // A previous artwork download finishing after a tab changes must not overwrite its current image.
+ let finishOld;
+ context.fetch=async url=>{if(url.includes('/OLD/'))return new Promise(resolve=>{finishOld=resolve});return new Response(image,{headers:{'Content-Type':'image/png'}})};
+ await content.onMessage.emit({...state,artUrl:'https://i.ytimg.com/vi/OLD/hqdefault.jpg'});
+ await content.onMessage.emit({...state,artUrl:'https://i.ytimg.com/vi/NEW/hqdefault.jpg'});await tick();await tick();
+ const before=native.sent.length;
+ finishOld(new Response(image,{headers:{'Content-Type':'image/png'}}));await tick();await tick();
+ assert.equal(native.sent.length,before);assert.ok(native.sent.at(-1).artUrl.includes('/NEW/'));
+ console.log('PASS: artwork download, CDN allowlist, no credentials, deduplication and stale-download race');
+})();

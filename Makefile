@@ -6,7 +6,7 @@ test: build test-extension
 	dbus-run-session -- python3 -m unittest discover -s tests -v
 
 test-extension:
-	node tests/test_extension.cjs
+	npm test
 
 e2e: build
 	dbus-run-session -- python3 tests/e2e/run.py

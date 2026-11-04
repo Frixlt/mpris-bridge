@@ -6,7 +6,7 @@ This is a fork of [totti786/mpris-bridge](https://github.com/totti786/mpris-brid
 
 ## Status
 
-Version **1.1.0** is a development release. A signed Firefox Add-ons build has **not** been published yet. GitHub's unsigned XPI is suitable for temporary installation and submission to Mozilla; it does not bypass Firefox signing requirements.
+Version **1.1.1** is a development release. Version 1.1.0 was submitted for Mozilla review; version 1.1.1 adds local artwork delivery and needs a separate signed update. GitHub's unsigned XPI is suitable for temporary installation and submission to Mozilla; it does not bypass Firefox signing requirements.
 
 ## Install the local helper
 
@@ -52,6 +52,7 @@ Replace the example name with an actual player from the list. Only that tab's me
 - Restarting the native helper requests fresh reports from live documents instead of replaying cached metadata.
 - YouTube metadata comes from the current player video details. The video ID must agree with the requested watch/shorts/embed/live URL; an old title and cover are not relabelled with a new URL during navigation.
 - Album artwork on YouTube uses the verified current video ID. Other sites continue to use MediaSession metadata, page title and `og:image`.
+- YouTube thumbnails and Twitch avatars are downloaded by the browser and passed to the native helper as validated image bytes. MPRIS advertises a local image file, avoiding a second download by desktop panels. Twitch keeps channel avatars rather than live-frame thumbnails.
 - Every tab remains independent, even if two tabs have the same title or URL. Embedded frames are selected within their owning tab, with a playing frame preferred.
 
 YouTube uses an internal page API for video details. Site changes may require a follow-up fix. The bridge exports one player per tab, not one per media element within a tab.
@@ -64,7 +65,7 @@ The D-Bus prefix `org.mpris.MediaPlayer2.firefox_bridge.*` is retained for deskt
 
 ## Privacy and permissions
 
-See [PRIVACY.md](PRIVACY.md). The extension reads media in non-private tabs and sends titles, URLs, artwork URLs and playback state to the local helper. Other applications in the same desktop session can read that metadata from D-Bus. Private tabs are ignored. There are no analytics, remote executable scripts or external accounts. A desktop panel may download artwork from the published artwork URL.
+See [PRIVACY.md](PRIVACY.md). The extension reads media in non-private tabs and sends titles, URLs, artwork URLs and playback state to the local helper. Other applications in the same desktop session can read that metadata from D-Bus. Private tabs are ignored. There are no analytics, remote executable scripts or external accounts. The extension downloads YouTube/Twitch artwork without cookies or page referrers and passes it to the helper for temporary local caching; panels may download artwork from other providers.
 
 Linux Firefox-family browsers are supported. Chromium, Windows, macOS and Android are not supported. Flatpak/sandboxed browsers need separate native-messaging integration and are not covered by this installer.
 

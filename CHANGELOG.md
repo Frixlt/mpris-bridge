@@ -1,3 +1,14 @@
+# Fork release 1.1.1 — 2026-11-04
+
+- Download YouTube thumbnails and Twitch channel avatars in the browser, without cookies/referrers, and pass validated image bytes to the native helper.
+- Publish local artwork files through MPRIS so panels do not need independent access to image CDNs.
+- Keep cached artwork across ordinary metadata heartbeats; reject downloads completing after the active artwork changed.
+- Remove temporary artwork files with their tab and reject invalid or oversized image payloads.
+- Preserve Twitch channel avatars; do not substitute an earlier channel's stream preview.
+- Add explicit image-CDN permissions and document image requests and temporary cache storage in the privacy policy.
+
+Version 1.1.1 requires updating the extension and native helper. The `artData` protocol field is optional; older metadata-only messages remain supported. This update has not been submitted to Mozilla automatically.
+
 # Fork release 1.1.0 — 2026-11-04
 
 - Publish as MPRIS Tab Bridge with an independent add-on ID and native host registration.

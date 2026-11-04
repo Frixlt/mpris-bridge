@@ -10,6 +10,8 @@
 //!
 //! stdout carries the protocol and nothing else: diagnostics go to stderr.
 
+mod artwork;
+
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -290,6 +292,7 @@ struct Tab {
     /// Its own connection: every player serves the same object path, and signals must carry this tab's
     /// bus name as their sender for desktops to tell the tabs apart. Dropping it releases the name.
     conn: Connection,
+    artwork: artwork::Artwork,
 }
 
 async fn open_tab(tab: i64, out: &Out) -> zbus::Result<Tab> {
@@ -300,7 +303,7 @@ async fn open_tab(tab: i64, out: &Out) -> zbus::Result<Tab> {
         .serve_at(PATH, Player { tab, out: out.clone(), state: state.clone() })?
         .build()
         .await?;
-    Ok(Tab { state, conn })
+    Ok(Tab { state, conn, artwork: artwork::Artwork::default() })
 }
 
 async fn announce(tab: &Tab, c: Changes) -> zbus::Result<()> {
@@ -320,7 +323,7 @@ async fn announce(tab: &Tab, c: Changes) -> zbus::Result<()> {
     Ok(())
 }
 
-async fn handle(tabs: &mut HashMap<i64, Tab>, out: &Out, msg: Json) {
+async fn handle(tabs: &mut HashMap<i64, Tab>, out: &Out, mut msg: Json) {
     let Some(id) = msg.get("tab").and_then(Json::as_i64) else { return };
     if flag(&msg, "gone") == Some(true) {
         tabs.remove(&id);
@@ -335,7 +338,8 @@ async fn handle(tabs: &mut HashMap<i64, Tab>, out: &Out, msg: Json) {
             }
         }
     }
-    let Some(tab) = tabs.get(&id) else { return };
+    let Some(tab) = tabs.get_mut(&id) else { return };
+    tab.artwork.resolve(id, &mut msg);
     let changes = {
         let mut state = match tab.state.lock() {
             Ok(s) => s,
@@ -382,5 +386,6 @@ async fn main() {
             Err(e) => eprintln!("mpris-bridge: bad message: {e}"),
         }
     }
+    drop(tabs);
     std::process::exit(0);
 }

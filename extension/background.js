@@ -10,7 +10,25 @@ function publish(id) {
   const frames = [...tab.frames.values()].filter(f => f.state);
   frames.sort((a, b) => Number(b.state.playing) - Number(a.state.playing) || b.at - a.at);
   tab.active = frames[0] || null;
-  if (tab.active) post({ ...tab.active.state, tab: id });
+  if (tab.active) {
+    const frame = tab.active;
+    const url = frame.state.artUrl;
+    if (!frame.art || frame.art.url !== url) frame.art = { url, data: null, pending: false, retryAt: 0, sentTo: null };
+    const art = frame.art;
+    const report = { ...frame.state, tab: id };
+    if (art.data && art.sentTo !== native) { report.artData = art.data; art.sentTo = native; }
+    post(report);
+    if (url && bridgeArtworkAllowed(url) && !art.data && !art.pending && Date.now() >= art.retryAt) {
+      art.pending = true;
+      bridgeFetchArtwork(url).then(data => {
+        art.pending = false;
+        art.retryAt = Date.now() + 30000;
+        if (tabs.get(id)?.frames.get(frame.port.sender.frameId) !== frame || frame.art !== art) return;
+        art.data = data;
+        if (data) publish(id);
+      });
+    }
+  }
   else post({ tab: id, gone: true });
 }
 function forget(id) {

@@ -4,7 +4,7 @@ const port = sender => ({name:'mpris-bridge-media', sender, onMessage:event(), o
 (async()=>{
 const native=port(), live=new Map(), timers=[], runtime={onConnect:event(),connectNative:()=>native};
 const browser={runtime,tabs:{onRemoved:event(),onUpdated:event(),get:async id=>live.get(id),update(){}},windows:{update(){}}};
-vm.runInNewContext(fs.readFileSync('extension/background.js','utf8'),{browser,Date,setTimeout(f){timers.push(f)}});
+vm.runInNewContext(fs.readFileSync('extension/background.js','utf8'),{browser,Date,bridgeArtworkAllowed:()=>false,setTimeout(f){timers.push(f)}});
 const report=(title,url='https://example.org/a')=>({title,pageUrl:url,url,playing:true,volume:.6});
 async function frame(id,frameId=0){live.set(id,{id,url:'https://example.org/a',windowId:1});const p=port({tab:live.get(id),frameId});await runtime.onConnect.emit(p);return p;}
 const a=await frame(1),b=await frame(2);

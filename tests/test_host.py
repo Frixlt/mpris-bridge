@@ -82,6 +82,45 @@ class HostTest(unittest.TestCase):
     def call(self, name, method, params=None):
         self.bus.call_sync(name, "/org/mpris/MediaPlayer2", PLAYER, method, params, None, Gio.DBusCallFlags.NONE, -1, None)
 
+    def test_browser_artwork_cache_and_lifecycle(self):
+        import base64
+        from pathlib import Path
+        from urllib.parse import urlparse, unquote
+        image = (Path(__file__).parent / "e2e/site/art96.png").read_bytes()
+        remote = "https://i.ytimg.com/vi/test/hqdefault.jpg"
+        self.tx(tab_state(artUrl=remote, artData=base64.b64encode(image).decode()))
+        name = self.wait_name()
+        art = self.get(name, "Metadata")["mpris:artUrl"]
+        self.assertTrue(art.startswith("file://"), art)
+        path = Path(unquote(urlparse(art).path))
+        self.assertEqual(path.read_bytes(), image)
+        # Ordinary five-second reports must keep the downloaded file, not revert to HTTP.
+        self.tx(tab_state(artUrl=remote))
+        time.sleep(0.2)
+        self.assertEqual(self.get(name, "Metadata")["mpris:artUrl"], art)
+        self.tx(tab_state(tab=8, artUrl=remote, artData=base64.b64encode(image).decode()))
+        time.sleep(0.2)
+        second = next(n for n in self.names() if n.endswith("t8"))
+        other = Path(unquote(urlparse(self.get(second, "Metadata")["mpris:artUrl"]).path))
+        self.assertNotEqual(path, other)
+        self.tx({"tab":7,"gone":True})
+        time.sleep(0.2)
+        self.assertFalse(path.exists())
+        self.assertEqual(other.read_bytes(), image)
+
+    def test_invalid_artwork_does_not_keep_previous_cover(self):
+        import base64
+        from pathlib import Path
+        from urllib.parse import urlparse, unquote
+        image = (Path(__file__).parent / "e2e/site/art96.png").read_bytes()
+        self.tx(tab_state(artUrl="https://example.org/old.png", artData=base64.b64encode(image).decode()))
+        name = self.wait_name()
+        old = Path(unquote(urlparse(self.get(name,"Metadata")["mpris:artUrl"]).path))
+        self.tx(tab_state(artUrl="https://example.org/new.png", artData=base64.b64encode(b"<html>not an image</html>").decode()))
+        time.sleep(0.2)
+        self.assertEqual(self.get(name,"Metadata")["mpris:artUrl"],"https://example.org/new.png")
+        self.assertFalse(old.exists())
+
     def test_player_lifecycle(self):
         self.tx(tab_state())
         name = self.wait_name()
