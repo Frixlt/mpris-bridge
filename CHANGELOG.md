@@ -1,3 +1,11 @@
+# Fork release 1.1.4 — 2026-11-04
+
+- Write volume through Twitch's own slider and input/change events so its saved volume, mute state, actual audio and desktop control stay synchronized.
+- Use YouTube's setVolume/unMute/mute API when available rather than bypassing its player state.
+- Read the site's effective volume and keep 0% while muted; positive panel adjustments restore sound at the requested level.
+- Keep legitimate looping media registered while muted.
+- Cover panel-to-site changes, site-to-panel changes, mute/unmute volume retention and muted looping media in browser regression tests.
+
 # Fork release 1.1.3 — 2026-11-04
 
 - Copy YouTube thumbnail primitives into the content-script compartment before filtering/sorting, so Firefox's cross-compartment restrictions do not prevent player reports.

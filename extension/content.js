@@ -23,7 +23,7 @@
 
   function isMedia(el) {
     const d = el.duration;
-    if (el.muted && el.loop) return false;                        // a looping background video
+    if (el.muted && el.loop && el.getAttribute("aria-hidden") === "true") return false;                        // a looping background video
     if (!el.currentSrc && !el.src && el.readyState === 0) return false;
     if (isFinite(d) && d < 2) return false;                       // a sound effect or a preview
     return true;
@@ -121,7 +121,7 @@
       // Playing on paper but waiting for data: the desktop reads it as paused, so a progress bar stops with the picture
       buffering: !el.paused && !el.ended && (el.readyState < 3 || el.seeking),
       rate: el.playbackRate || 1,
-      volume: el.muted ? 0 : el.volume,
+      volume: bridgeMediaVolume(el, location.href, document),
       canSeek: !live,
       canNext: !!handlers.nexttrack || !!document.querySelector(".ytp-next-button:not([style*='display: none'])"),
       canPrev: !!handlers.previoustrack || !!document.querySelector(".ytp-prev-button:not([style*='display: none'])"),
@@ -166,7 +166,7 @@
       case "Previous": if (!call("previoustrack")) { const b = document.querySelector(".ytp-prev-button"); if (b) b.click(); } break;
       case "Seek": if (el && isFinite(el.duration)) el.currentTime = Math.max(0, Math.min(el.duration, el.currentTime + msg.value / 1e6)); break;
       case "SetPosition": if (el && isFinite(el.duration)) el.currentTime = Math.max(0, Math.min(el.duration, msg.value / 1e6)); break;
-      case "SetVolume": if (el) { el.muted = false; el.volume = Math.max(0, Math.min(1, msg.value)); } break;
+      case "SetVolume": bridgeSetMediaVolume(el, msg.value, location.href, document); break;
       case "SetRate": if (el) el.playbackRate = msg.value; break;
     }
     schedule();

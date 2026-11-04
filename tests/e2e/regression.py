@@ -76,7 +76,10 @@ class Site(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(b"""<!doctype html><title>Old document title</title><div id="movie_player"></div><audio id="m" src="/tone.ogg" loop></audio><script>
 const id=new URL(location.href).searchParams.get('v');
 window.details={videoId:id,title:'Track '+id,author:'Author '+id,thumbnail:{thumbnails:[{url:'https://i.ytimg.com/vi/'+id+'/mqdefault.jpg',width:320,height:180}]}};
-document.querySelector('#movie_player').getPlayerResponse=()=>({videoDetails:window.details});
+const yt=document.querySelector('#movie_player');
+yt.getPlayerResponse=()=>({videoDetails:window.details});
+yt.getVolume=()=>m.volume*100;yt.isMuted=()=>m.muted;
+yt.setVolume=v=>{window.lastApiVolume=v;m.volume=v/100;};yt.unMute=()=>m.muted=false;yt.mute=()=>m.muted=true;
 if(navigator.mediaSession) navigator.mediaSession.metadata=new MediaMetadata({title:'STALE SESSION TITLE',artwork:[{src:'/art96.png'}]});
 m.play();
 window.navigateTrack=(id)=>{history.pushState({},'', '/watch?v='+id);dispatchEvent(new Event('yt-navigate-finish'));};
@@ -87,8 +90,12 @@ window.finishTrack=(id)=>{window.details={videoId:id,title:'Track '+id,author:'A
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
             self.end_headers()
-            self.wfile.write(b"""<!doctype html><title>Stale channel</title><meta property="og:image" content="https://static-cdn.jtvnw.net/jtv_user_pictures/stale.png"><a id="channel" href="/firstchannel"><img id="avatar" alt="firstchannel" src="https://static-cdn.jtvnw.net/jtv_user_pictures/test-first-profile_image-300x300.png"></a><audio id="m" src="/tone.ogg" loop></audio><script>
-            m.play();
+            self.wfile.write(b"""<!doctype html><title>Stale channel</title><meta property="og:image" content="https://static-cdn.jtvnw.net/jtv_user_pictures/stale.png"><a id="channel" href="/firstchannel"><img id="avatar" alt="firstchannel" src="https://static-cdn.jtvnw.net/jtv_user_pictures/test-first-profile_image-300x300.png"></a><input id="level" type="range" min="0" max="1" step="0.01" value="0.6" data-a-target="player-volume-slider"><button id="mute">Mute</button><audio id="m" src="/tone.ogg" loop></audio><script>
+            window.savedVolume=0.6;window.siteMuted=false;
+            function renderVolume(){m.volume=siteMuted?0:savedVolume;m.muted=siteMuted;level.value=siteMuted?0:savedVolume;}
+            level.addEventListener('input',()=>{savedVolume=Number(level.value);siteMuted=savedVolume===0;renderVolume();});
+            mute.onclick=()=>{siteMuted=!siteMuted;renderVolume();};
+            renderVolume();m.play();
             window.switchChannel=()=>history.pushState({},'', '/secondchannel');
             window.finishChannel=()=>{channel.href='/secondchannel';avatar.alt='secondchannel';avatar.src='https://static-cdn.jtvnw.net/jtv_user_pictures/test-second-profile_image-300x300.png';};
             </script>""")
@@ -226,6 +233,8 @@ with tempfile.TemporaryDirectory(prefix="mpris-addon-test-") as temp:
         )
         driver.switch_to.window(first)
         assert abs(driver.execute_script("return m.volume") - 0.3) < 0.01
+        assert driver.execute_script("return lastApiVolume") == 30
+        print("PASS: YouTube volume uses the site player API", flush=True)
         driver.execute_script("navigateTrack('THREE')")
         wait(
             "old player removed during mismatched video transition",
@@ -285,6 +294,61 @@ with tempfile.TemporaryDirectory(prefix="mpris-addon-test-") as temp:
             ),
         )
         twitch = found[0]
+
+        def set_volume(name, value):
+            subprocess.run(
+                [
+                    "busctl",
+                    "--user",
+                    "set-property",
+                    name,
+                    "/org/mpris/MediaPlayer2",
+                    "org.mpris.MediaPlayer2.Player",
+                    "Volume",
+                    "d",
+                    str(value),
+                ],
+                check=True,
+            )
+
+        driver.execute_script("mute.click()")
+        wait(
+            "site mute publishes zero without removing the looping player",
+            lambda: twitch in (p := players()) and p[twitch]["Volume"] == 0,
+        )
+        set_volume(twitch, 0.25)
+        wait(
+            "panel volume updates the Twitch UI store and unmutes",
+            lambda: driver.execute_script(
+                "return !siteMuted && !m.muted && Math.abs(savedVolume-.25)<.001 && Math.abs(m.volume-.25)<.001 && Math.abs(Number(level.value)-.25)<.001"
+            ),
+        )
+        for expected in [0, 0.25]:
+            driver.execute_script("mute.click()")
+            wait(
+                "Twitch mute toggle preserves the selected volume " + str(expected),
+                lambda: (
+                    abs(players().get(twitch, {}).get("Volume", -1) - expected) < 0.001
+                ),
+            )
+        driver.execute_script(
+            "level.value='.4';level.dispatchEvent(new Event('input',{bubbles:true}));"
+        )
+        wait(
+            "Twitch slider changes reach MPRIS",
+            lambda: abs(players().get(twitch, {}).get("Volume", -1) - 0.4) < 0.001,
+        )
+        driver.execute_script("mute.click()")
+        set_volume(twitch, 0)
+        assert driver.execute_script("return siteMuted && m.muted")
+        set_volume(twitch, 0.35)
+        wait(
+            "a later panel adjustment restores sound at the requested volume",
+            lambda: driver.execute_script(
+                "return !siteMuted && Math.abs(savedVolume-.35)<.001 && Math.abs(m.volume-.35)<.001"
+            ),
+        )
+
         driver.execute_script("switchChannel()")
         wait(
             "Twitch SPA does not retain the previous channel avatar",
