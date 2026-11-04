@@ -1,39 +1,40 @@
-# Releasing
+# Publishing MPRIS Tab Bridge
 
-Firefox only installs extensions that Mozilla has signed, and no browser store can ship the helper, so a release has three parts.
+This fork is maintained at https://github.com/Frixlt/mpris-bridge and must be submitted as a **new** add-on, not an update to totti786's MPRIS Bridge listing.
 
-## 1. Tag
+## Stable identity
 
-Bump `version` in `extension/manifest.json`, `host/Cargo.toml` and `packaging/PKGBUILD`, add an entry to `CHANGELOG.md`, run `make test e2e lint`, then:
+- Name: MPRIS Tab Bridge
+- Add-on ID: `mpris-tab-bridge@frixlt.github.io`
+- Native host: `mpris_tab_bridge`
+- License: MIT, including the upstream copyright notice
+- Desktop Linux only; a separately installed native helper is required
 
-```
-git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin main vX.Y.Z
-```
+Keep the add-on ID and `allowed_extensions` in both helper installers identical. Do not reuse the upstream add-on ID. Once signed, the ID identifies future updates and should remain unchanged.
 
-Attach `dist/mpris-bridge-X.Y.Z.xpi` (from `make xpi`) and a release build of the helper to the GitHub release.
+## Verify and package
 
-## 2. Extension (addons.mozilla.org)
+Run `npm ci --ignore-scripts`, `npm test`, `npm run lint`, `make test`, `make e2e` and the browser regression suite documented in the README. Check that two tabs have independent volume and that closed/discarded tabs disappear. Update the extension, npm, helper and packaging versions and the changelog together.
 
-Create API keys under Developer Hub, Manage API Keys. Then either upload the `.xpi` by hand at "Submit a New Add-on", or sign it from the command line:
+`make xpi` creates `dist/mpris-tab-bridge-<version>-unsigned.xpi` and its SHA-256 file. Packaging includes only `extension/`, without tests, logs, native binaries, credentials or minification. Repeating the command for unchanged source produces the same hash.
 
-```
-cd extension
-npx web-ext sign --channel=listed --api-key=... --api-secret=...
-```
+GitHub Actions uploads the unsigned extension as a workflow artifact. It is a review package, not a permanent Firefox installer. Do not label it as signed.
 
-Use `--channel=unlisted` to get a signed file you host yourself. The source isn't minified, so reviewers need no separate upload. In the listing, say plainly that the add-on needs the helper from the README and that nothing leaves the machine. Reviewers will run it without the helper, in which case it just keeps quietly retrying to connect.
+## Submit to Firefox Add-ons
 
-The add-on id, `mpris-bridge@totti786.github.io`, can't change once Mozilla has signed it. It has to match `allowed_extensions` in `scripts/install-host.sh` and `packaging/PKGBUILD`.
+Follow Mozilla's [submission guide](https://extensionworkshop.com/documentation/publish/submitting-an-add-on/) and [signing overview](https://extensionworkshop.com/documentation/publish/signing-and-distribution-overview/).
 
-## 3. AUR
+1. Sign in with the maintainer's Mozilla account and open the Add-ons Developer Hub.
+2. Choose Submit a New Add-on and **On this site** for a public listing.
+3. Upload the unsigned XPI. Resolve validation issues, select Linux desktop compatibility and provide the listing from `docs/AMO-LISTING.md`.
+4. Supply the privacy policy and reviewer notes. State clearly that a local native helper is required and link to the helper source and installation instructions.
+5. The maintainer reviews and accepts Mozilla's current developer agreement and submits the release. The repository does not store signing credentials.
+6. Wait for Mozilla signing/review. Only after approval, publish the actual Add-ons listing URL in the README and distribute the signed XPI.
 
-```
-git clone ssh://aur@aur.archlinux.org/mpris-bridge.git aur-mpris-bridge
-cp packaging/PKGBUILD aur-mpris-bridge/ && cd aur-mpris-bridge
-updpkgsums && makepkg --printsrcinfo > .SRCINFO
-git add PKGBUILD .SRCINFO && git commit -m "Update to X.Y.Z" && git push
-```
+For command-line signing, `web-ext sign` supports listed and unlisted distribution. Keep API credentials in the local environment or GitHub Actions secrets; never commit them or paste them into issue bodies. Do not add an `update_url` for AMO-listed releases; AMO supplies updates.
 
-## Keep in step
+## GitHub release
 
-The helper and the extension talk through the JSON messages described at the top of `host/src/main.rs`. A change that older helpers or extensions can't read needs a new native host name, or a version field in the messages.
+Create a release tag such as `v1.1.0` from the verified main commit. Attach the unsigned XPI with an explicit label, SHA-256 file and a helper built from the tagged source. When available, attach Mozilla's signed XPI separately. Preserve the tag and original commit as the source of each artifact.
+
+GitHub publication does not provide Mozilla signing or store approval. Avoid publishing screenshots or logs containing personal tab titles, browser profiles, tokens or account data.

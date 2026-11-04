@@ -1,10 +1,11 @@
-# Maintainer: totti786
-pkgname=mpris-bridge
-pkgver=1.0.0
+# Maintainer: Frixlt
+# Based on the upstream PKGBUILD by totti786
+pkgname=mpris-tab-bridge
+pkgver=1.1.0
 pkgrel=1
 pkgdesc="Publishes Firefox media tabs as MPRIS players (native-messaging helper for the MPRIS Bridge extension)"
 arch=('x86_64' 'aarch64')
-url="https://github.com/totti786/mpris-bridge"
+url="https://github.com/Frixlt/mpris-bridge"
 license=('MIT')
 depends=('glibc' 'gcc-libs')
 makedepends=('cargo')
@@ -14,21 +15,21 @@ source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
 sha256sums=('SKIP')  # the AUR copy carries the real sum; a file cannot contain the hash of the archive it ships in
 
 build() {
-  cd "$pkgname-$pkgver/host"
+  cd "mpris-bridge-$pkgver/host"
   cargo build --release --locked
 }
 
 package() {
-  cd "$pkgname-$pkgver"
+  cd "mpris-bridge-$pkgver"
   install -Dm755 host/target/release/mpris-bridge-host "$pkgdir/usr/lib/$pkgname/mpris-bridge-host"
   install -d "$pkgdir/usr/lib/mozilla/native-messaging-hosts"
-  cat > "$pkgdir/usr/lib/mozilla/native-messaging-hosts/mpris_bridge.json" <<JSON
+  cat > "$pkgdir/usr/lib/mozilla/native-messaging-hosts/mpris_tab_bridge.json" <<JSON
 {
-  "name": "mpris_bridge",
+  "name": "mpris_tab_bridge",
   "description": "MPRIS Bridge helper: publishes browser media tabs as MPRIS players",
   "path": "/usr/lib/$pkgname/mpris-bridge-host",
   "type": "stdio",
-  "allowed_extensions": ["mpris-bridge@totti786.github.io"]
+  "allowed_extensions": ["mpris-tab-bridge@frixlt.github.io"]
 }
 JSON
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"

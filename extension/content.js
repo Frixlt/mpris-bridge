@@ -38,6 +38,16 @@
   const abs = u => { try { return new URL(u, location.href).href; } catch (e) { return ""; } };
 
   function metadata() {
+    if (/(^|\.)youtube\.com$/.test(location.hostname)) {
+      let details = null;
+      try {
+        const player = document.querySelector("#movie_player")?.wrappedJSObject;
+        details = player?.getPlayerResponse?.()?.videoDetails || player?.getVideoData?.();
+        if (details && !details.videoId && details.video_id)
+          details = { videoId: details.video_id, title: details.title, author: details.author };
+      } catch (_) {}
+      return bridgeYoutubeMetadata(location.href, details);
+    }
     let md = null;
     try { md = navigator.mediaSession.metadata; } catch (e) {}
     let art = "";
@@ -46,17 +56,11 @@
       list.sort((a, b) => parseInt((b.sizes || "0").split("x")[0]) - parseInt((a.sizes || "0").split("x")[0]));
       art = list.length ? abs(list[0].src) : "";
     } catch (e) {}
-    const yt = /(^|\.)youtube\.com$/.test(location.hostname) ? new URLSearchParams(location.search).get("v") : "";
-    if (!art && yt) art = "https://i.ytimg.com/vi/" + yt + "/hqdefault.jpg";
     if (!art) {
       const og = document.querySelector('meta[property="og:image"]');
       if (og && og.content) art = abs(og.content);
     }
-    let artist = md ? md.artist : "";
-    if (!artist && yt) {
-      const ch = document.querySelector("ytd-watch-metadata #owner ytd-channel-name a, #owner #channel-name a");
-      artist = ch ? ch.textContent.trim() : "";
-    }
+    const artist = md ? md.artist : "";
     return {
       title: clean(md && md.title) || clean(document.title),
       artist: artist || "",
@@ -74,16 +78,23 @@
     timer = 0;
     const el = pickMedia();
     if (!el) {
-      if (!gone) { gone = true; last = ""; browser.runtime.sendMessage({ gone: true }); }
+      if (!gone) { gone = true; last = ""; send({ gone: true }); }
       clearInterval(ticker);
       ticker = 0;
+      return;
+    }
+    const meta = metadata();
+    if (!meta) {
+      if (!gone) send({ gone: true });
+      gone = true;
+      last = "";
       return;
     }
     gone = false;
     const d = el.duration;
     const live = !isFinite(d);
-    const state = Object.assign(metadata(), {
-      url: location.href,
+    const state = Object.assign({ url: location.href }, meta, {
+      pageUrl: location.href,
       lengthUs: live ? 0 : Math.round(d * 1e6),
       positionUs: Math.round((el.currentTime || 0) * 1e6),
       playing: !el.paused && !el.ended,
@@ -101,7 +112,7 @@
     if (key !== last || now - lastAt > 5000) {
       last = key;
       lastAt = now;
-      browser.runtime.sendMessage(state);
+      send(state);
     }
   }
 
@@ -110,6 +121,7 @@
   // while the page has media, and the next media event starts it again.
   let ticker = 0;
   function schedule() {
+    if (suspended) return;
     if (!timer) timer = setTimeout(report, 150);
     if (!ticker) ticker = setInterval(schedule, 1000);
   }
@@ -121,7 +133,8 @@
     return true;
   }
 
-  browser.runtime.onMessage.addListener(msg => {
+  function onCommand(msg) {
+    if (msg.cmd === "Refresh") { last = ""; schedule(); return; }
     const el = pickMedia();
     const play = () => { const r = el.play(); if (r && r.catch) r.catch(() => {}); };  // a page may refuse; that is not an error here
     switch (msg.cmd) {
@@ -137,5 +150,35 @@
       case "SetRate": if (el) el.playbackRate = msg.value; break;
     }
     schedule();
+  }
+
+  let port = null;
+  let suspended = false;
+  function send(msg) {
+    try { port?.postMessage(msg); } catch (_) {}
+  }
+  function connect() {
+    if (suspended || port) return;
+    port = browser.runtime.connect({ name: "mpris-bridge-media" });
+    const connection = port;
+    port.onMessage.addListener(onCommand);
+    port.onDisconnect.addListener(() => {
+      if (port !== connection) return;
+      port = null;
+      if (!suspended) setTimeout(connect, 1000);
+    });
+    last = "";
+    schedule();
+  }
+  window.addEventListener("pagehide", () => {
+    suspended = true;
+    clearTimeout(timer); timer = 0;
+    clearInterval(ticker); ticker = 0;
+    send({ gone: true });
+    port?.disconnect(); port = null;
   });
+  window.addEventListener("pageshow", () => { suspended = false; connect(); schedule(); });
+  for (const event of ["yt-navigate-finish", "yt-player-updated", "yt-page-data-updated", "popstate"])
+    window.addEventListener(event, schedule);
+  connect();
 })();

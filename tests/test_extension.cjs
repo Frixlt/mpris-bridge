@@ -1,0 +1,38 @@
+const vm = require('node:vm'), fs = require('node:fs'), assert = require('node:assert/strict');
+const event = () => ({ listeners: [], addListener(f) {this.listeners.push(f)}, async emit(...a) {for(const f of [...this.listeners]) await f(...a)}});
+const port = sender => ({name:'mpris-bridge-media', sender, onMessage:event(), onDisconnect:event(), sent:[], postMessage(m){this.sent.push(m)}, disconnect(){this.onDisconnect.emit()}});
+(async()=>{
+const native=port(), live=new Map(), timers=[], runtime={onConnect:event(),connectNative:()=>native};
+const browser={runtime,tabs:{onRemoved:event(),onUpdated:event(),get:async id=>live.get(id),update(){}},windows:{update(){}}};
+vm.runInNewContext(fs.readFileSync('extension/background.js','utf8'),{browser,Date,setTimeout(f){timers.push(f)}});
+const report=(title,url='https://example.org/a')=>({title,pageUrl:url,url,playing:true,volume:.6});
+async function frame(id,frameId=0){live.set(id,{id,url:'https://example.org/a',windowId:1});const p=port({tab:live.get(id),frameId});await runtime.onConnect.emit(p);return p;}
+const a=await frame(1),b=await frame(2);
+await a.onMessage.emit(report('A'));await b.onMessage.emit(report('B'));
+assert.equal(native.sent.at(-1).tab,2);
+await native.onMessage.emit({tab:1,cmd:'SetVolume',value:.3});assert.equal(a.sent.at(-1).value,.3);assert.equal(b.sent.length,0);
+await browser.tabs.onUpdated.emit(1,{url:'https://example.org/b'});live.get(1).url='https://example.org/b';
+await a.onMessage.emit(report('OLD'));assert.equal(native.sent.at(-1).gone,true);
+await a.onMessage.emit(report('NEW','https://example.org/b'));assert.equal(native.sent.at(-1).title,'NEW');
+const replacement=await frame(1);await replacement.onMessage.emit(report('Replacement'));
+await a.onDisconnect.emit();assert.equal(native.sent.at(-1).title,'Replacement');
+await replacement.onDisconnect.emit();assert.equal(native.sent.at(-1).gone,true);
+const discard=await frame(3);await discard.onMessage.emit(report('Discard'));
+live.get(3).discarded=true;await browser.tabs.onUpdated.emit(3,{discarded:true});await discard.onMessage.emit(report('Stale'));assert.equal(native.sent.at(-1).gone,true);
+const embedded=await frame(4,1);await embedded.onMessage.emit(report('Iframe'));await embedded.onDisconnect.emit();assert.equal(native.sent.at(-1).gone,true);
+const get=browser.tabs.get;let release;
+browser.tabs.get=()=>new Promise(resolve=>{release=resolve});
+const pending=b.onMessage.emit(report('Queued stale report'));
+await b.onMessage.emit({gone:true});release(live.get(2));await pending;
+assert.equal(native.sent.at(-1).gone,true);browser.tabs.get=get;
+const reconnect=await frame(5);await reconnect.onMessage.emit(report('Fresh required'));
+const count=native.sent.length;await native.onDisconnect.emit();timers.pop()();
+assert.equal(native.sent.length,count);assert.equal(reconnect.sent.at(-1).cmd,'Refresh');
+await browser.tabs.onRemoved.emit(2);assert.equal(native.sent.at(-1).tab,2);assert.equal(native.sent.at(-1).gone,true);
+vm.runInThisContext(fs.readFileSync('extension/media-metadata.js','utf8'));
+assert.equal(bridgeYoutubeMetadata('https://www.youtube.com/watch?v=NEW',{videoId:'OLD',title:'Old'}),null);
+const md=bridgeYoutubeMetadata('https://www.youtube.com/watch?v=NEW',{videoId:'NEW',title:'New',author:'Artist'});
+assert.equal(md.title,'New');assert.ok(md.artUrl.includes('/NEW/'));
+assert.equal(bridgeYoutubeMetadata('https://example.org',null),undefined);
+console.log('PASS: per-tab routing, SPA URL race, document replacement, iframe removal, discard, close, queued-report race, fresh reconnect, current-video metadata');
+})();

@@ -5,3 +5,5 @@ node_modules/
 web-ext-artifacts/
 /host/target/
 tests/e2e/site/tone.ogg
+.venv/
+*.log

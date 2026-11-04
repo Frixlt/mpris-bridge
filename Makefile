@@ -1,28 +1,27 @@
-VERSION := $(shell python3 -c "import json;print(json.load(open('extension/manifest.json'))['version'])")
-
-.PHONY: build test e2e memory lint xpi install-host clean
-
+.PHONY: build test test-extension e2e regression memory lint xpi install-host clean
 build:
 	cd host && cargo build --release --locked
 
-test: build
+test: build test-extension
 	dbus-run-session -- python3 -m unittest discover -s tests -v
 
-# Real headless Firefox with a throwaway profile; needs firefox, npx, ffmpeg and a session bus
+test-extension:
+	node tests/test_extension.cjs
+
 e2e: build
 	dbus-run-session -- python3 tests/e2e/run.py
 
-# Control vs extension, 12 tabs; see docs/MEMORY.md
+regression: build
+	dbus-run-session -- python3 tests/e2e/regression.py
+
 memory:
 	python3 tests/e2e/memory.py base && python3 tests/e2e/memory.py ext
 
 lint:
-	cd extension && npx --yes web-ext lint
+	npm run lint
 
-# An unsigned package, for review uploads or signing; Firefox release only installs it once Mozilla has signed it
 xpi:
-	mkdir -p dist
-	cd extension && zip -r -FS ../dist/mpris-bridge-$(VERSION).xpi . -x '*.svg'
+	python3 scripts/package-extension.py
 
 install-host:
 	scripts/install-host.sh

@@ -1,15 +1,15 @@
 {
   "manifest_version": 2,
-  "name": "MPRIS Bridge",
-  "version": "1.0.0",
-  "description": "Shows media playing in your tabs to the Linux desktop (media keys, panels, playerctl) as MPRIS players, with art, seeking and next/previous. Needs the small mpris-bridge helper.",
+  "name": "MPRIS Tab Bridge",
+  "version": "1.1.0",
+  "description": "Independent Linux MPRIS controls for each media tab, with current YouTube metadata and reliable tab lifecycle. Requires a native helper.",
   "icons": {
     "48": "icons/icon-48.png",
     "96": "icons/icon-96.png"
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "mpris-bridge@totti786.github.io",
+      "id": "mpris-tab-bridge@frixlt.github.io",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
         "required": [
@@ -37,10 +37,12 @@
         "<all_urls>"
       ],
       "js": [
+        "media-metadata.js",
         "content.js"
       ],
       "run_at": "document_start",
       "all_frames": true
     }
-  ]
+  ],
+  "homepage_url": "https://github.com/Frixlt/mpris-bridge"
 }

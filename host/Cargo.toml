@@ -1,10 +1,10 @@
 [package]
 name = "mpris-bridge-host"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 description = "Native-messaging helper that publishes browser media tabs as MPRIS players"
 license = "MIT"
-repository = "https://github.com/totti786/mpris-bridge"
+repository = "https://github.com/Frixlt/mpris-bridge"
 
 [[bin]]
 name = "mpris-bridge-host"
