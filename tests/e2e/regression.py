@@ -91,9 +91,9 @@ window.finishTrack=(id)=>{window.details={videoId:id,title:'Track '+id,author:'A
             self.send_header("Content-Type", "text/html")
             self.end_headers()
             self.wfile.write(b"""<!doctype html><title>Stale channel</title><meta property="og:image" content="https://static-cdn.jtvnw.net/jtv_user_pictures/stale.png"><a id="channel" href="/firstchannel"><img id="avatar" alt="firstchannel" src="https://static-cdn.jtvnw.net/jtv_user_pictures/test-first-profile_image-300x300.png"></a><input id="level" type="range" min="0" max="1" step="0.01" value="0.6" data-a-target="player-volume-slider"><button id="mute">Mute</button><audio id="m" src="/tone.ogg" loop></audio><script>
-            window.savedVolume=0.6;window.siteMuted=false;
-            function renderVolume(){m.volume=siteMuted?0:savedVolume;m.muted=siteMuted;level.value=siteMuted?0:savedVolume;}
-            level.addEventListener('input',()=>{savedVolume=Number(level.value);siteMuted=savedVolume===0;renderVolume();});
+            window.savedVolume=0.6;window.siteMuted=false;window.levelControl=level;
+            function renderVolume(){m.volume=siteMuted?0:savedVolume;m.muted=siteMuted;levelControl.value=siteMuted?0:savedVolume;}
+            window.levelControl=level;level.addEventListener('input',()=>{savedVolume=Number(levelControl.value);siteMuted=savedVolume===0;renderVolume();});
             mute.onclick=()=>{siteMuted=!siteMuted;renderVolume();};
             renderVolume();m.play();
             window.switchChannel=()=>history.pushState({},'', '/secondchannel');
@@ -139,7 +139,7 @@ opts.add_argument("--allow-system-access")
 opts.accept_insecure_certs = True
 opts.page_load_strategy = "eager"
 for k, v in {
-    "network.dns.localDomains": "www.youtube.com,www.twitch.tv",
+    "network.dns.localDomains": "www.youtube.com,www.twitch.tv,player.test",
     "network.proxy.type": 0,
     "network.trr.mode": 5,
     "dom.security.https_only_mode": False,
@@ -349,6 +349,29 @@ with tempfile.TemporaryDirectory(prefix="mpris-addon-test-") as temp:
             ),
         )
 
+        # The same implementation must work with Spotify's wrapper-labelled input,
+        # with no Twitch selector and without mistaking the seek/resizer ranges for volume.
+        driver.execute_script("""
+        const input=level;input.removeAttribute('data-a-target');
+        const wrapper=document.createElement('div');wrapper.dataset.testid='volume-bar';
+        input.before(wrapper);wrapper.append(input);input.id='plain-range';input.step='0.1';
+        window.volumeInput=input;
+        const seek=document.createElement('input');seek.type='range';seek.min=0;seek.max=100;seek.value=33;seek.dataset.testid='playback-progressbar';document.body.append(seek);window.seek=seek;
+        const resize=document.createElement('input');resize.type='range';resize.min=280;resize.max=420;resize.value=300;resize.className='LayoutResizer__input';document.body.append(resize);window.resize=resize;
+        """)
+        set_volume(twitch, 0.55)
+        wait(
+            "shared controller handles a Spotify-style volume wrapper at exact 5% steps",
+            lambda: driver.execute_script(
+                "return Math.abs(savedVolume-.55)<.001 && Math.abs(Number(volumeInput.value)-.55)<.001"
+            ),
+        )
+        assert driver.execute_script('return seek.value==="33" && resize.value==="300"')
+        driver.execute_script("mute.click();mute.click()")
+        wait(
+            "shared controller keeps the selected volume after mute/unmute",
+            lambda: abs(players().get(twitch, {}).get("Volume", -1) - 0.55) < 0.001,
+        )
         driver.execute_script("switchChannel()")
         wait(
             "Twitch SPA does not retain the previous channel avatar",
@@ -369,6 +392,40 @@ with tempfile.TemporaryDirectory(prefix="mpris-addon-test-") as temp:
                 .endswith("test-second-profile_image-300x300.png")
             ),
         )
+        driver.switch_to.new_window("tab")
+        driver.get("http://player.test:" + str(server.server_port) + "/firstchannel")
+        generic = wait(
+            "unknown website exports a media player",
+            lambda: next(
+                (
+                    n
+                    for n, p in players().items()
+                    if p["Metadata"]
+                    .get("xesam:url", "")
+                    .startswith("http://player.test:")
+                ),
+                None,
+            ),
+        )
+        set_volume(generic, 0.45)
+        wait(
+            "the same volume controller works on an unknown domain",
+            lambda: (
+                driver.execute_script(
+                    "return Math.abs(savedVolume-.45)<.001 && Math.abs(m.volume-.45)<.001"
+                )
+                and abs(players().get(generic, {}).get("Volume", -1) - 0.45) < 0.001
+            ),
+        )
+        assert abs(players()[twitch]["Volume"] - 0.55) < 0.001
+        for expected in [0, 0.45]:
+            driver.execute_script("mute.click()")
+            wait(
+                "unknown-site mute retains its selected volume " + str(expected),
+                lambda: (
+                    abs(players().get(generic, {}).get("Volume", -1) - expected) < 0.001
+                ),
+            )
         print("ALL BROWSER REGRESSIONS PASSED", flush=True)
     finally:
         driver.quit()

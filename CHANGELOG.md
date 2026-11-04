@@ -1,3 +1,13 @@
+# Fork release 1.1.5 — 2026-11-04
+
+- Replace the Twitch-specific volume selector with a shared semantic HTML range-control resolver.
+- Recognize volume controls by accessibility labels, associated labels and their surrounding component attributes, including Spotify's wrapper-labelled control.
+- Reject disabled/invalid sliders and do not confuse unlabelled seek or layout-resize sliders with volume.
+- Preserve 5% commands when a site's range input has a coarser keyboard step.
+- Test the same implementation with a Twitch-style input, Spotify-style wrapper and a completely unknown website, including independent player routing and mute/unmute retention.
+
+This is a common control path for detectable HTML sliders, not a promise of universal synchronization with every custom web-player UI. Media Session does not define a universal volume API.
+
 # Fork release 1.1.4 — 2026-11-04
 
 - Write volume through Twitch's own slider and input/change events so its saved volume, mute state, actual audio and desktop control stay synchronized.
